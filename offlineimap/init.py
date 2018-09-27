@@ -37,6 +37,7 @@ from offlineimap.CustomConfig import CustomConfigParser
 from offlineimap.utils import stacktrace
 from offlineimap.repository import Repository
 from offlineimap.folder.IMAP import MSGCOPY_NAMESPACE
+import StringIO
 
 
 ACCOUNT_LIMITED_THREAD_NAME = 'MAX_ACCOUNTS'
@@ -137,6 +138,9 @@ class OfflineImap(object):
         parser.add_option("-c", dest="configfile", metavar="FILE",
                   default=None,
                   help="specifies a configuration file to use")
+        
+        parser.add_option("-C", dest="configstring",
+                  help="quote enclosed configuration read from command line")
 
         parser.add_option("-d", dest="debugtype",
                   metavar="type1[,type2[,...]]",
@@ -197,7 +201,7 @@ class OfflineImap(object):
             sys.exit(0)
 
         # Read in configuration file.
-        if not options.configfile:
+        if not (options.configfile or options.configstring):
             # Try XDG location, then fall back to ~/.offlineimaprc
             xdg_var = 'XDG_CONFIG_HOME'
             if not xdg_var in os.environ or not os.environ[xdg_var]:
@@ -208,16 +212,24 @@ class OfflineImap(object):
             if not os.path.exists(options.configfile):
                 options.configfile = os.path.expanduser('~/.offlineimaprc')
             configfilename = options.configfile
-        else:
+        elif options.configfile:
             configfilename = os.path.expanduser(options.configfile)
+        else:
+            configfilename = None
 
         config = CustomConfigParser()
-        if not os.path.exists(configfilename):
+
+        if not configfilename:
+            configstring = options.configstring.replace("\\n", "\n")
+            print configstring
+            config.readfp(StringIO.StringIO(configstring))
+        elif configfilename and os.path.exists(configfilename):
+            config.read(configfilename)
+        else:
             # TODO, initialize and make use of chosen ui for logging
             logging.error(" *** Config file '%s' does not exist; aborting!"%
                           configfilename)
             sys.exit(1)
-        config.read(configfilename)
 
         # Profile mode chosen?
         if options.profiledir:
